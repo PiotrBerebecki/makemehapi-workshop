@@ -390,14 +390,305 @@ npm install rot13-transform
 ### VALIDATION
 Exercise 9
 
+Route configuration offers lots of ways to customize each endpoint offered by
+your hapi application. One of those ways is through validation.
+
+Validation can happen in parameters in the path, in inbound payload validation,
+and outbound response. Objects for validation are defined in the `Joi`
+validation framework.
+
+Create a server that has a route configuration exposing an endpoint for
+chickens. Specifically:
+
+```
+/chickens
+```
+
+Within the route, add a path parameter named `breed` which has an attached
+validation within the route's configuration. The solution will just check that a
+Validation object exists within the configuration for `breed`, not any specific
+validation.
+
+-----------------------------------------------------------------
+##HINTS
+
+Create a server that listens on port `8080` with the following code:
+
+```js
+var routeConfig = {
+    path: '/a/path/{with}/{parameters}',
+    method: 'GET',
+    handler: myHandler,
+    config: {
+        validate: {
+            params: {
+                with: Joi.string().required(),
+                parameters: Joi.string().required()
+            }
+        }
+    }
+}
+```
+
+All route information can be found here:
+
+    {rootdir:/node_modules/hapi/API.md}
+
+Joi
+
+Information can be found here:
+
+    {rootdir:/node_modules/joi/README.md}
+
+To install joi:
+
+```sh
+npm install joi
+```
+
 ### VALIDATION USING JOI OBJECT
 Exercise 10
+
+By using a `Joi` object we can specify highly customizable validation rules in
+paths, request payloads, and responses.
+
+Create a server exposing a login endpoint and reply with "login successful" when
+an HTTP `POST` request is sent to `/login`.
+
+The endpoint will accept following payload variables:
+
+```isGuest```       (boolean)
+```username```      (string)
+```accessToken```   (alphanumeric)
+```password```      (alphanumeric)
+
+Validation should consist of following conditions:
+
+i)   if ```isGuest``` is false, a ```username``` is required.
+ii)  ```password``` cannot appear together with ```accessToken```.
+iii) if any other parameters than specified above are sent, they should pass the validation.
+
+If the validation is successful, the handler must return a text of `login successful`
+
+-----------------------------------------------------------------
+##HINTS
+
+Create a server that listens on port `8080` with the following code:
+
+```js
+
+var routeConfig = {
+    path: '/a/path/',
+    method: 'POST',
+    handler: myHandler,
+    config: {
+        validate: {
+           payload: Joi.object({
+                username: Joi.string(),
+                password: Joi.string().alphanum(),
+                accessToken: Joi.string().alphanum(),
+                birthyear: Joi.number().integer().min(1900).max(2013),
+                email: Joi.string().email()
+           })
+           .options({allowUnknown: true})
+           .with('username', 'birthyear')
+           .without('password', 'accessToken')
+        }
+    }
+}
+```
+
+All route information can be found here:
+
+    {rootdir:/node_modules/hapi/API.md}
+
+Joi information can be found here:
+
+    {rootdir:/node_modules/joi/README.md}
 
 ### UPLOADS
 Exercise 11
 
+Create a server with an endpoint that accepts an uploaded file to the following
+path:
+
+```
+/upload
+```
+
+The endpoint should accept the following keys: description and file. The
+```description``` field should be a string describing whatever you want, and
+```file``` should be an uploaded file. The endpoint should return a JSON object
+that follows the following pattern:
+
+```json
+{
+  description :  //description from form
+  file : {
+    data :    //content of file uploaded
+    filename:  //name of file uploaded
+    headers :   //file header provided by hapi
+  }
+}
+```
+
+-----------------------------------------------------------------
+##HINTS
+
+To accept a file as input, your request should use the ```multipart/form-data```
+header.
+
+We can get a file as readable stream by adding the following in the route
+configuration:
+
+```js
+
+payload: {
+    output : 'stream',
+    parse : true
+}
+```
+
+If we've uploaded the file with the parameter ```file```, then we can access it
+in the handler function using following code:
+
+```js
+handler: function (request, reply) {
+    var body = '';
+    request.payload.file.on('data', function (data){
+
+      body += data
+    });
+
+    request.payload.file.on('end', function (){
+
+      console.log(body);
+    });
+}
+```
+
+More information about file uploading can be found in the reply interface of the
+hapi [API docs](http://hapijs.com/api#reply-interface).
+
+
 ### COOKIES
 Exercise 12
 
+Create a server that has a route configuration exposing an endpoint ``set-
+cookie`` and ``check-cookie`` which can be accessed using a `'GET'` request.
+Specifically:
+
+```
+/set-cookie
+```
+
+The `set-cookie` endpoint will set a cookie with the key 'session' and the value
+`{ key: 'makemehapi' }`. The cookie should be `base64json` encoded, should
+expire in `10 ms`, and have a domain scope of `localhost`.  The response is
+unimportant for this exercise, and may be anything you like.
+
+```
+/check-cookie
+```
+
+The `check-cookie` endpoint will have cookies received from the `/set-cookie`
+endpoint. If the `session` key is present in cookies then simply return
+`{ user: 'hapi' }`, otherwise return an `unauthorized` access error.
+
+--------------------
+
+##HINTS
+
+In your `server.route()` function, you may add the following option:
+
+```js
+config: {
+    state: {
+        parse: true,
+        failAction: 'log'
+    }
+}
+```
+
+By using this option, we can configure the server to handle cookies in various ways.
+
+`hapi` provides a way to manage cookies for a specific url path.
+
+```js
+server.state('session', {
+    path: '/',
+});
+```
+
+We can set cookies while replying to request as follows:
+
+```js
+reply('success').state('session', 'session')
+```
+
+Cookie values are stored in server state, accessible using following code:
+
+```js
+var session = request.state.session;
+```
+
+More information about handling of cookies in `hapi` can be found in the Hapi
+directory in `node_modules` here [API](http://hapijs.com/api).
+
+While not required for this exercise, you may use [Boom](https://www.npmjs.com/package/boom)
+to more easily return an `unauthorized` error along with the correct HTTP status
+code:
+
+```js
+var Boom = require('boom');
+```
+
+```js
+reply(Boom.unauthorized('Missing authentication'));
+```
+
 ### AUTH
 Exercise 13
+
+Basic Authentication is a simple way to protect access to your application using
+only a username and password. There is no need for cookies or sessions, only a
+standard HTTP header.
+
+Create a hapi server that listens on a port passed from the command line and is
+protected with Basic Authentication. The authentication username should be
+"hapi" and the password "auth" and the server should respond with an HTTP 401
+status code when authentication fails.
+
+--------------------
+
+##HINTS
+
+There is a hapi plugin for handling basic authentication. Install it by running:
+
+```sh
+npm install hapi-auth-basic
+```
+
+You'll need to register the `hapi-auth-basic` plugin then configure a named
+authentication strategy for `basic`. Once authentication is configured, you'll
+need to set the `auth` property in the route configuration to the name of the
+strategy you configured.
+
+```js
+server.auth.strategy('simple', 'basic', { validateFunc: validate });
+
+server.route({
+    method: 'GET',
+    path: '/',
+    config: {
+        auth: 'simple',
+        handler: function (request, reply) {
+            reply();
+        }
+    }
+});
+```
+
+Hapi-auth-basic information can be found here:
+
+    {rootdir:/node_modules/hapi-auth-basic/README.md}
